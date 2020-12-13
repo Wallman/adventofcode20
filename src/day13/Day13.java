@@ -6,40 +6,49 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Day13 {
 
     public static long run(Input input) {
-        BusCadence max = input.buses.stream()
-                .max(Day13::compare)
-                .orElseThrow(RuntimeException::new);
-        long i = findStart(max);
+        List<BusCadence> busesInSeries = findBusesInSeries(input.buses);
+        Long lowestCommonDenominator = busesInSeries.stream()
+                .map(bc -> (long) bc.busId)
+                .reduce(1L, (i1, i2) -> i1 * i2);
 
-        while (!allBusesMatch(i, input.buses)) {
-            i += max.busId;
-            if (i % 1000000L == 0) {
+        long i = lowestCommonDenominator;
+
+        while (!allBusesMatch(i, input.buses, busesInSeries)) {
+            i += lowestCommonDenominator;
+            if (i % (lowestCommonDenominator * 1000000) == 0) {
                 System.out.println(i);
             }
         }
         return i;
     }
 
-    private static long findStart(BusCadence max) {
-        long i = 100000000000000L;
-        while ((i + max.delay) % max.busId != 0) {
-            i++;
-        }
-        System.out.println("Start: " + i);
-        return i;
-    }
-
-    private static boolean allBusesMatch(long minute, List<BusCadence> buses) {
+    private static List<BusCadence> findBusesInSeries(List<BusCadence> buses) {
         return buses.stream()
-                .allMatch(busCadence -> (minute + busCadence.delay) % busCadence.busId == 0);
+                .filter(busCadence -> buses.stream()
+                        .anyMatch(busCadence1 -> busCadence1.delay == busCadence.busId || busCadence1.busId == busCadence.delay))
+                .collect(Collectors.toList());
     }
 
-    private static int compare(BusCadence bc1, BusCadence bc2) {
-        return bc1.busId - bc2.busId;
+    private static boolean allBusesMatch(long minute, List<BusCadence> allBuses, List<BusCadence> busesInSeries) {
+        return busesInSeries.stream()
+                .map(bc -> bc.delay)
+                .anyMatch(delay -> {
+                    boolean match = isMatch(minute - delay, allBuses);
+                    if (match) {
+                        System.out.println(delay);
+                    }
+                    return match;
+                });
+    }
+
+    private static boolean isMatch(long minute, List<BusCadence> allBuses) {
+        return allBuses.stream()
+                .allMatch(busCadence -> (minute + busCadence.delay) % busCadence.busId == 0);
     }
 
     public static Input input() {
@@ -62,7 +71,7 @@ public class Day13 {
             throw new RuntimeException();
         }
     }
-    
+
     static class Input {
         int earliestMinute;
         List<BusCadence> buses;
